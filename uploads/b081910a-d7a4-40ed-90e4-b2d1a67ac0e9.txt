@@ -1,0 +1,2 @@
+file '/Users/dtaibeau/Documents/Gigaverse/ffmpeg_testing/uploads/segment_0_00-00-00_00-01-00.mp4'
+file '/Users/dtaibeau/Documents/Gigaverse/ffmpeg_testing/uploads/segment_1_00-02-00_00-03-00.mp4'
