@@ -1,2 +1,0 @@
-file '/Users/dtaibeau/Documents/Gigaverse/ffmpeg_testing/uploads/segment_0_231cb7bb-1c96-4bff-aa3e-4f931351b85c.mp4'
-file '/Users/dtaibeau/Documents/Gigaverse/ffmpeg_testing/uploads/segment_1_67619152-1e12-47b8-9940-640e67c4310e.mp4'
