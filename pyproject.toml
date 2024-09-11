@@ -12,6 +12,8 @@ uvicorn = "^0.30.6"
 ffmpeg-python = "^0.2.0"
 python-multipart = "^0.0.9"
 loguru = "^0.7.2"
+pytest = "^8.3.3"
+httpx = "^0.27.2"
 
 
 [build-system]
