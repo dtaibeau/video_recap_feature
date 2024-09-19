@@ -1,13 +1,10 @@
+import openai
 from loguru import logger
-from typing import List
 from uuid import uuid4
-from datetime import datetime, time
-import pytest
-
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from pydantic import BaseModel
+from pytube import YouTube
 
-from main import cut_video, merge_segments
+from main import process_video_cut_request, VideoTranscript, TranscriptSegment
 import os
 
 app = FastAPI()
@@ -15,52 +12,62 @@ app = FastAPI()
 UPLOAD_DIR = "uploads"
 
 
-class VideoCutRequest(BaseModel):
-    start_times: List[time]
-    end_times: List[time]
+def format_time(seconds):
+    """Format seconds to hh:mm:ss"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    return f"{hours:02}:{minutes:02}:{secs:02}"
 
 
-# def validate_time_input_format(request: VideoCutRequest):
-#     try:
-#         datetime.strptime(request, '%H:%M:%S')
-#     except ValueError:
-#         raise HTTPException(status_code=400, detail=f"Invalid time for format: {time_str}")
+# get transcript
+def parse_transcript(file_content: str) -> VideoTranscript:
+    """Parse tactiq.io transcript from .txt into VideoTranscript"""
+    segments = []
+
+    for line in file_content.splitlines():
+        if line.strip() and not line.startswith("#") and not "youtube.com" in line:
+            timestamp, text = line.split(" ", 1)
+            segments.append(TranscriptSegment(start_time=timestamp.strip(), text=text.strip()))
+
+    return VideoTranscript(segments=segments)
 
 
 @app.post("/cut-video/")
-async def cut_video_endpoint(
-    file: UploadFile = File(...),
-    start_times: List[time] = Form(...),
-    end_times: List[time] = Form(...)
-):
-    # validate input file
-    if file.content_type != "video/mp4":
-        raise HTTPException(status_code=400, detail="Only video/mp4 is supported")
-
-    if len(start_times) != len(end_times):
-        logger.error("Start times and end times must have the same length")
-        raise HTTPException(status_code=400, detail="Start times and end times must have the same length")
-
-    validated_request = VideoCutRequest(start_times=start_times, end_times=end_times)
-
+async def cut_video_endpoint(transcript_file: UploadFile = File(...)):
+    """Endpoint to handle video cutting based on the uploaded transcript file."""
     if not os.path.exists(UPLOAD_DIR):
         os.mkdir(UPLOAD_DIR)
 
-    # save video locally
-    video_path = os.path.join(UPLOAD_DIR, f"{uuid4()}.mp4")
-    with open(video_path, "wb") as buffer:  # store temporarily
-        buffer.write(await file.read())
+    video_path = os.path.join(UPLOAD_DIR, "sample.mp4")
 
-    logger.info(f"Cutting video {video_path}")
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
 
-    # cut video segments
-    video_segment_paths = []
-    for i, (start_time, end_time) in enumerate(zip(validated_request.start_times, validated_request.end_times)):
-        segment_file_name = f"segment_{i}_{start_time.strftime('%H-%M-%S')}_{end_time.strftime('%H-%M-%S')}.mp4"
-        video_segment_path = os.path.join(UPLOAD_DIR, segment_file_name)
-        cut_video(video_path, start_time.strftime('%H:%M:%S'), end_time.strftime('%H:%M:%S'), video_segment_path)
-        video_segment_paths.append(video_segment_path)
+    logger.info(f"Using local video file: {video_path}")
 
-    merged_video_path = merge_segments(video_segment_paths)
+    # read and parse the transcript file
+    try:
+        transcript_data = await transcript_file.read()
+        transcript_content = transcript_data.decode("utf-8")
+        transcript_model = parse_transcript(transcript_content)
+    except Exception as e:
+        logger.error(f"Error parsing transcript file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse transcript file")
 
-    return {"message": "Video cut and merged successfully!", "output": merged_video_path}
+    # cut and merge
+    try:
+        video_cut_response = await process_video_cut_request(video_path, transcript_model)
+    except HTTPException as e:
+        logger.error(f"Error during video processing: {e}")
+        raise e
+
+    return {
+        "message": "Video processed successfully!",
+        "merged_output": video_cut_response.merged_video_path,
+        "summary": video_cut_response.summary
+    }
+
+
+
+
