@@ -1,6 +1,6 @@
 import os
 from fastapi.testclient import TestClient
-from app import app  # Adjust import based on your project structure
+from app import app
 import pytest
 from unittest.mock import patch
 

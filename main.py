@@ -168,6 +168,7 @@ def cut_video(input_path: str, start: str, end: str, output_path: str) -> str:
 
 
 def merge_segments(segment_paths: List[str]) -> str:
+    """Merges video based on list of cut segments' paths"""
     logger.info("ATTEMPTING TO MERGE VIDEO")
     if not segment_paths:
         raise ValueError("No segments provided for merging.")
@@ -207,7 +208,7 @@ def merge_segments(segment_paths: List[str]) -> str:
 
 
 async def process_video_cut_request(video_path: str, transcript: VideoTranscript) -> AllSoundbites:
-    """Process video cut request by coordinating soundbite retrieval, video cutting, and merging asynchronously."""
+    """Processes video cut request by coordinating soundbite retrieval, video cutting, and merging asynchronously"""
     logger.info("PROCESSING CUT MERGE REQUEST")
 
     soundbites = await retrieve_soundbites_with_llm(transcript)
@@ -242,9 +243,8 @@ async def process_video_cut_request(video_path: str, transcript: VideoTranscript
         logger.error(f"Error during video merging: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to merge video segments.")
 
-        # Return updated soundbites with merged video path
     return AllSoundbites(
         soundbites=soundbites,
         summary="Soundbites processed and video merged",
-        merged_video_path=merged_video_path  # Include the merged video path
+        merged_video_path=merged_video_path
     )
