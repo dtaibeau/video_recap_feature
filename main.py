@@ -1,22 +1,22 @@
 import os
-import re
 from asyncio import to_thread
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 from uuid import uuid4
 import ffmpeg
 import openai
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from fastapi import HTTPException
-from langchain_core.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, \
-    ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from loguru import logger
-from pydantic import ValidationError
-from pydantic.v1 import BaseModel, Field
+
+from models import SYSTEM_PROMPT, USER_PROMPT, Soundbite, VideoTranscript, AllSoundbites, GV_WATERMARK
+from subtitles import create_srt_file, add_subtitles, add_watermark
 
 
 ### SETUP ###
+
 
 load_dotenv(".env")
 
@@ -25,93 +25,17 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 
-# pydantic models
-class TranscriptSegment(BaseModel):
-    """Data model for a transcript segment from Tactiq.io"""
-    start_time: str
-    text: str
-
-
-class VideoTranscript(BaseModel):
-    """Data model for the entire transcript from Tactiq.io"""
-    segments: List[TranscriptSegment]
-
-
-class Soundbite(BaseModel):
-    """Data model for individual soundbite and validation of timestamp + segment text"""
-    start_time: str = Field(..., regex=r'\d{2}:\d{2}:\d{2}(\.\d{1,3})?')
-    end_time: str = Field(..., regex=r'\d{2}:\d{2}:\d{2}(\.\d{1,3})?')
-    text: str
-    file_path: Optional[str] = None
-    reasoning: Optional[str] = None  # llm reasoning for selecting particular soundbite
-
-
-class AllSoundbites(BaseModel):
-    """Data model for all soundbites"""
-    soundbites: List[Soundbite]
-    summary: str
-    merged_video_path: Optional[str] = None
-
-
-# PROMPT_TEMPLATE = """
-#     Here is a transcript: {transcript}. Your task is to select the most meaningful soundbites from the transcript.
-#     Each soundbite should represent a key idea or important moment in the conversation that would resonate with an audience.
-#
-#     Here are the specific instructions:
-#     1. Select 10 different windows in the transcript that are each between **30 to 60 seconds** long.
-#     2. Each window must contain at least one complete sentence or idea, and should not cut off mid-sentence.
-#     3. For each soundbite, add an extra 30 seconds to 1 minute of context around it to ensure natural start and end points without abrupt cuts.
-#     4. For each soundbite, provide the following information:
-#        - Start time (hh:mm:ss)
-#        - End time (hh:mm:ss)
-#        - The soundbite text
-#        - A brief explanation of why you selected that soundbite and why it is meaningful in the context of the conversation.
-#
-#     Return the results in this format:
-#     1. Start: [start_time], End: [end_time]
-#        "Soundbite text"
-#        Reason: [reason for choosing this soundbite]
-#
-#     If you need to extend the soundbite to include more context, do so within the 30-second to 1-minute boundary.
-#     """
-
-SYSTEM_PROMPT = SystemMessagePromptTemplate.from_template(
-    """You are an expert in analyzing video transcripts. Your task is to identify the 10 most meaningful 
-    soundbites based on the context of the conversation. For each soundbite, you must provide the start and 
-    end times, the corresponding text, and reasoning for why the soundbite is meaningful. Each soundbite should 
-    be between 5 and 10 seconds long."""
-)
-
-
-USER_PROMPT = HumanMessagePromptTemplate.from_template(
-    """Here is a transcript: {transcript}. Your task is to select exactly 10 meaningful soundbites from the transcript.
-    Each soundbite should represent a key idea or important moment in the conversation that would resonate with an audience.
-
-    Here are the specific instructions:
-    1. Select 10 different soundbites from the transcript. Each soundbite must be **5 to 10 seconds** long.
-    2. Each soundbite should cover one or more complete ideas, and should not cut off mid-sentence.
-    3. Provide for each soundbite:
-       - Start time (hh:mm:ss)
-       - End time (hh:mm:ss)
-       - The soundbite text
-       - A brief explanation of why you selected that soundbite and why it is meaningful.
-       
-    Return the soundbites in this format:
-    1. Start: [start_time], End: [end_time]
-       "Soundbite text"
-       Reason: [reason for choosing this soundbite]
-       
-    Ensure all 10 soundbites are distinct and meaningful in the context of the conversation."""
-)
+### CHAINING ###
 
 prompt = ChatPromptTemplate.from_messages([SYSTEM_PROMPT, USER_PROMPT])
 
-structured_llm = llm.with_structured_output(Soundbite)
+structured_llm = llm.with_structured_output(AllSoundbites)
 
 chain = (prompt | structured_llm.with_config({"run_name": "soundbite_selection"}))
 
 
-# retrieve soundbites
+### SOUNDBITE RETRIEVAL ###
+
 async def retrieve_soundbites_with_llm(transcript: VideoTranscript) -> List[Soundbite]:
     """Retrieve soundbites from a video and transcript using LLM."""
     logger.info("RETRIEVING SOUNDBITES FROM LLM")
@@ -121,16 +45,10 @@ async def retrieve_soundbites_with_llm(transcript: VideoTranscript) -> List[Soun
     logger.info(f"LLM response: {response}")
 
     try:
-        if not isinstance(response, list):
-            response = [response]
 
         soundbites = []
 
-        # if len(response) < 10:
-        #     logger.error(f"Expected 10 soundbites, but received {len(response)}")
-        #     raise HTTPException(status_code=500, detail="Insufficient soundbites returned from LLM")
-
-        for item in response:
+        for item in response.soundbites:
             if isinstance(item, Soundbite):
                 soundbites.append(item)
             else:
@@ -142,6 +60,8 @@ async def retrieve_soundbites_with_llm(transcript: VideoTranscript) -> List[Soun
         logger.error(f"Error processing LLM response: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to parse LLM response")
 
+
+### VIDEO CUTTING ###
 
 def cut_video(input_path: str, start: str, end: str, output_path: str) -> str:
     """Cuts video based on start and end timestamps"""
@@ -166,6 +86,8 @@ def cut_video(input_path: str, start: str, end: str, output_path: str) -> str:
         logger.error(f"Error during video cutting: {str(e)}")
         raise HTTPException(status_code=500, detail=f"FFmpeg error: {str(e)}")
 
+
+### MERGING ###
 
 def merge_segments(segment_paths: List[str]) -> str:
     """Merges video based on list of cut segments' paths"""
@@ -207,6 +129,8 @@ def merge_segments(segment_paths: List[str]) -> str:
     return merged_output
 
 
+### CUTTING + MERGING ###
+
 async def process_video_cut_request(video_path: str, transcript: VideoTranscript) -> AllSoundbites:
     """Processes video cut request by coordinating soundbite retrieval, video cutting, and merging asynchronously"""
     logger.info("PROCESSING CUT MERGE REQUEST")
@@ -221,13 +145,8 @@ async def process_video_cut_request(video_path: str, transcript: VideoTranscript
 
         logger.info(f"Attempting to cut video from {soundbite.start_time} to {soundbite.end_time}.")
 
-        if os.path.exists(video_segment_path):
-            logger.info(f"Segment created: {video_segment_path}")
-        else:
-            logger.error(f"Failed to create segment: {video_segment_path}")
-
         try:
-            # cut video asynchronously
+            # cut video
             await to_thread(cut_video, video_path, soundbite.start_time, soundbite.end_time, video_segment_path)
             segment_paths.append(video_segment_path)
 
@@ -243,8 +162,24 @@ async def process_video_cut_request(video_path: str, transcript: VideoTranscript
         logger.error(f"Error during video merging: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to merge video segments.")
 
+    # create SRT file
+    subtitles_path = os.path.join("uploads", "subtitles.srt")
+    create_srt_file(soundbites, subtitles_path)
+
+    # add subtitles to merged video
+    os.system(f"ffmpeg -i {merged_video_path} -vf subtitles={subtitles_path} /Users/dtaibeau/Documents/Gigaverse"
+              f"/ffmpeg_testing/uploads/merged_vid_with_subtitles.mp4")
+
+    output_path = os.path.join("uploads", "merged_vid_with_subtitles.mp4")
+
+    watermark_path = GV_WATERMARK
+
+    final_output_path = os.path.join("uploads", "merged_vid_with_watermark_and_subtitles.mp4")
+
+    add_watermark(output_path, final_output_path, watermark_path)
+
     return AllSoundbites(
         soundbites=soundbites,
-        summary="Soundbites processed and video merged",
-        merged_video_path=merged_video_path
+        merged_video_path=final_output_path
     )
+

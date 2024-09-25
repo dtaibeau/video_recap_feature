@@ -1,0 +1,20 @@
+[Script Info]
+Title: Churchill's Speech - Karaoke Style
+ScriptType: v4.00+
+PlayDepth: 0
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H00FF0000,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1.5,0,2,10,10,10,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:05.00,Default,,0,0,0,,{\k25}We {\k25}shall {\k50}fight {\k50}on {\k25}the {\k25}beaches,
+Dialogue: 0,0:00:05.00,0:00:10.00,Default,,0,0,0,,{\k30}we {\k30}shall {\k60}fight {\k60}on {\k30}the {\k30}landing {\k50}grounds,
+Dialogue: 0,0:00:10.00,0:00:15.00,Default,,0,0,0,,{\k25}we {\k25}shall {\k50}fight {\k50}in {\k25}the {\k25}fields {\k50}and {\k50}in {\k50}the {\k25}streets,
+Dialogue: 0,0:00:15.00,0:00:20.00,Default,,0,0,0,,{\k30}we {\k30}shall {\k60}fight {\k60}in {\k30}the {\k30}hills;
+Dialogue: 0,0:00:20.00,0:00:25.00,Default,,0,0,0,,{\k25}we {\k25}shall {\k50}never {\k50}surrender.
+Dialogue: 0,0:00:25.00,0:00:30.00,Default,,0,0,0,,{\k30}And {\k30}even {\k60}if, {\k60}which {\k30}I {\k30}do {\k30}not {\k60}for {\k30}a {\k30}moment {\k60}believe,
+Dialogue: 0,0:00:30.00,0:00:35.00,Default,,0,0,0,,{\k25}this {\k25}island {\k50}or {\k50}a {\k25}large {\k25}part {\k50}of {\k50}it {\k50}were {\k50}subjugated {\k50}and {\k50}starving,
+Dialogue: 0,0:00:35.00,0:00:40.00,Default,,0,0,0,,{\k30}our {\k30}Empire {\k60}beyond {\k60}the {\k30}seas, {\k30}armed {\k60}and {\k30}guarded {\k60}by {\k30}the {\k30}British {\k60}Fleet,
+Dialogue: 0,0:00:40.00,0:00:45.00,Default,,0,0,0,,{\k25}would {\k25}carry {\k50}on {\k50}the {\k25}struggle, {\k25}until, {\k50}in {\k50}God's {\k50}good {\k50}time,
+Dialogue: 0,0:00:45.00,0:00:50.00,Default,,0,0,0,,{\k30}the {\k30}New {\k60}World, {\k60}with {\k30}all {\k30}its {\k60}power {\k60}and {\k30}might,
+Dialogue: 0,0:00:50.00,0:00:55.00,Default,,0,0,0,,{\k25}steps {\k25}forth {\k50}to {\k50}the {\k25}rescue {\k25}and {\k50}the {\k50}liberation {\k50}of {\k50}the {\k50}old.

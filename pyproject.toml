@@ -22,6 +22,8 @@ streamlit = "^1.38.0"
 pytube = "^15.0.0"
 youtube-transcript-api = "^0.6.2"
 migrate = "^0.3.8"
+numpy = "^2.1.1"
+moviepy = "^1.0.3"
 
 
 [build-system]

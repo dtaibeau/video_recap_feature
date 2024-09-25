@@ -1,10 +1,8 @@
-import openai
 from loguru import logger
-from uuid import uuid4
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from pytube import YouTube
+from fastapi import FastAPI, File, UploadFile, HTTPException
 
-from main import process_video_cut_request, VideoTranscript, TranscriptSegment
+from main import process_video_cut_request
+from models import VideoTranscript, TranscriptSegment
 import os
 
 app = FastAPI()
@@ -65,7 +63,7 @@ async def cut_video_endpoint(transcript_file: UploadFile = File(...)):
     return {
         "message": "Video processed successfully!",
         "merged_output": video_cut_response.merged_video_path,
-        "summary": video_cut_response.summary
+        # "summary": video_cut_response.summary
     }
 
 
