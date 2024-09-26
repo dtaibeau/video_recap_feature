@@ -65,7 +65,3 @@ async def cut_video_endpoint(transcript_file: UploadFile = File(...)):
         "merged_output": video_cut_response.merged_video_path,
         # "summary": video_cut_response.summary
     }
-
-
-
-
